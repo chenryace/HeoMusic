@@ -701,49 +701,31 @@ var heo = {
     }, 4000);
   },
 
-  // 添加下载按钮到播放器
+  // 添加下载按钮到页面右上角
   addDownloadButton: function() {
+    // 检查是否已经存在下载按钮
+    if (document.querySelector('.download-btn-fixed')) {
+      return;
+    }
+
     // 等待播放器加载完成
     const checkPlayer = () => {
       const playerContainer = document.querySelector('.aplayer');
-      const controllerBar = document.querySelector('.aplayer-controller');
 
-      if (playerContainer && controllerBar && !document.querySelector('.download-btn')) {
-        // 创建下载按钮
+      if (playerContainer) {
+        // 创建固定位置的下载按钮
         const downloadBtn = document.createElement('button');
-        downloadBtn.className = 'download-btn';
+        downloadBtn.className = 'download-btn-fixed';
         downloadBtn.innerHTML = `
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
           </svg>
+          <span class="download-text">下载</span>
         `;
-        downloadBtn.title = '下载当前歌曲';
+        downloadBtn.title = '下载当前歌曲 (Ctrl+D)';
 
-        // 添加样式
-        downloadBtn.style.cssText = `
-          background: none;
-          border: none;
-          color: #666;
-          cursor: pointer;
-          padding: 8px;
-          margin: 0 4px;
-          border-radius: 4px;
-          transition: all 0.3s ease;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        `;
-
-        // 添加悬停效果
-        downloadBtn.addEventListener('mouseenter', () => {
-          downloadBtn.style.color = '#333';
-          downloadBtn.style.background = 'rgba(0,0,0,0.1)';
-        });
-
-        downloadBtn.addEventListener('mouseleave', () => {
-          downloadBtn.style.color = '#666';
-          downloadBtn.style.background = 'none';
-        });
+        // 添加到页面
+        document.body.appendChild(downloadBtn);
 
         // 添加点击事件
         downloadBtn.addEventListener('click', (e) => {
@@ -752,18 +734,9 @@ var heo = {
           this.downloadCurrentSong();
         });
 
-        // 将按钮添加到控制栏
-        const volumeButton = controllerBar.querySelector('.aplayer-volume-wrap') ||
-                           controllerBar.querySelector('.aplayer-time');
-        if (volumeButton) {
-          volumeButton.parentNode.insertBefore(downloadBtn, volumeButton);
-        } else {
-          controllerBar.appendChild(downloadBtn);
-        }
-
         // 添加音频加载状态监控（调试用）
         this.addAudioLoadingMonitor();
-      } else if (!playerContainer || !controllerBar) {
+      } else {
         // 如果播放器还没加载完成，继续等待
         setTimeout(checkPlayer, 100);
       }

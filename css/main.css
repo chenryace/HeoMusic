@@ -719,24 +719,49 @@ body .aplayer .aplayer-info .aplayer-controller .aplayer-time .aplayer-icon.apla
   }
 }
 
-/* 下载功能相关样式 */
-.download-btn {
-  background: none !important;
-  border: none !important;
-  color: #666 !important;
-  cursor: pointer !important;
-  padding: 8px !important;
-  margin: 0 4px !important;
-  border-radius: 4px !important;
-  transition: all 0.3s ease !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
+/* 右上角固定下载按钮样式 */
+.download-btn-fixed {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  background: rgba(0,0,0,0.8);
+  color: white;
+  border: none;
+  padding: 12px 16px;
+  border-radius: 25px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 1000;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  font-weight: 500;
 }
 
-.download-btn:hover {
-  color: #333 !important;
-  background: rgba(0,0,0,0.1) !important;
+.download-btn-fixed:hover {
+  background: rgba(0,0,0,0.95);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+}
+
+.download-btn-fixed:active {
+  transform: translateY(0);
+}
+
+.download-btn-fixed svg {
+  transition: transform 0.3s ease;
+}
+
+.download-btn-fixed:hover svg {
+  transform: translateY(2px);
+}
+
+.download-text {
+  font-size: 14px;
+  font-weight: 500;
 }
 
 /* 下载通知样式 */
@@ -921,11 +946,24 @@ body .aplayer .aplayer-info .aplayer-controller .aplayer-time .aplayer-icon.apla
   font-weight: 500;
 }
 
-/* 移动端下载按钮样式调整 */
+/* 移动端样式调整 */
 @media screen and (max-width: 768px) {
-  .download-btn {
-    padding: 6px !important;
-    margin: 0 2px !important;
+  .download-btn-fixed {
+    top: 70px;
+    right: 15px;
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  .download-btn-fixed .download-text {
+    display: none; /* 移动端只显示图标 */
+  }
+
+  .download-btn-fixed {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    justify-content: center;
   }
 
   .download-notice {
