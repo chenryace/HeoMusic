@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HeoMusic - 用音乐感染人心</title>
+  <title>HeoMusic - 本地音乐模式（支持下载）</title>
   <link rel="stylesheet" type="text/css" href="./css/APlayer.css">
   <link rel="stylesheet" type="text/css" href="./css/main.css">
   <link rel="icon" type="image/x-icon" href="./img/icon.webp">
@@ -12,15 +12,15 @@
   <meta name="apple-mobile-web-app-title" content="音乐">
   <link rel="bookmark" href="./img/icon.webp">
   <link rel="apple-touch-icon-precomposed" sizes="180x180" href="./img/icon-r.webp">
-  <meta name="description" content="一个简单好用的音乐播放器。">
-  <link rel="manifest" href="/manifest.json">
+  <meta name="description" content="一个简单好用的音乐播放器 - 本地音乐模式，支持下载功能。">
+  <link rel="manifest" href="/manifest.json"> 
   <meta name="theme-color" content="#000000">
   <style>
     .mode-indicator {
       position: fixed;
       top: 20px;
       left: 20px;
-      background: rgba(33, 150, 243, 0.9);
+      background: rgba(76, 175, 80, 0.9);
       color: white;
       padding: 8px 16px;
       border-radius: 20px;
@@ -49,20 +49,21 @@
 </head>
 <body>
 <div class="mode-indicator">
-  🌐 在线音乐模式 - 下载功能有限
+  🎵 本地音乐模式 - 支持下载
 </div>
 
-<a href="index-local.html" class="switch-mode">
-  🎵 切换到本地音乐模式（支持下载）
+<a href="index.html" class="switch-mode">
+  🌐 切换到在线音乐模式
 </a>
 
 <div id="heoMusic-page">
 </div>
+
 <script>
   var userId ="1749617841281"
   var userServer ="tencent"
 </script>   
-<script src="./config.js"></script>
+<script src="./config-local.js"></script>
 <script src="./js/APlayer.min.js"></script>
 <script async data-pjax src="./js/main.js"></script>
 </body>
