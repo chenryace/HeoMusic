@@ -375,165 +375,58 @@ var heo = {
   // 添加下载功能
   downloadCurrentSong: function() {
     if (!window.ap || !window.ap.list || !window.ap.list.audios) {
-      console.error('播放器未初始化或没有音乐列表');
+      this.showDownloadError('播放器未初始化或没有音乐列表');
       return;
     }
 
     const currentAudio = window.ap.list.audios[window.ap.list.index];
     if (!currentAudio) {
-      console.error('没有当前播放的音乐');
+      this.showDownloadError('没有当前播放的音乐');
       return;
     }
 
-    const downloadStatus = this.isDownloadAllowed(currentAudio.url);
-
-    if (local || downloadStatus === true) {
-      // 本地音乐或完全允许的外链
-      this.performDownload(currentAudio);
-    } else if (downloadStatus === 'online') {
-      // 在线音乐平台，尝试下载但给出警告
-      this.performOnlineDownload(currentAudio);
-    } else {
-      // 完全不支持的链接
-      this.showDownloadNotice();
-    }
+    // 直接尝试下载，不做过多限制
+    this.performDownload(currentAudio);
   },
 
-  // 检查是否允许下载
-  isDownloadAllowed: function(url) {
-    // 本地文件总是允许下载
-    if (url.startsWith('/') || url.startsWith('./') || url.startsWith('../')) {
-      return true;
-    }
-
-    // 对于在线音乐，我们也尝试下载，但会给出相应提示
-    // 检查是否为音乐平台的URL
-    const musicPlatforms = [
-      'music.163.com',
-      'y.qq.com',
-      'dl.stream.qqmusic.qq.com',
-      'isure.stream.qqmusic.qq.com',
-      'ws.stream.qqmusic.qq.com',
-      'music.taihe.com',
-      'musicapi.taihe.com'
-    ];
-
-    try {
-      const urlObj = new URL(url);
-      const isFromMusicPlatform = musicPlatforms.some(platform =>
-        urlObj.hostname.includes(platform)
-      );
-
-      if (isFromMusicPlatform) {
-        return 'online'; // 标记为在线音乐
-      }
-
-      // 其他外链域名
-      const allowedDomains = [
-        'your-domain.com',
-        'cdn.example.com'
-      ];
-
-      return allowedDomains.some(domain => urlObj.hostname.includes(domain));
-    } catch (e) {
-      return false;
-    }
-  },
-
-  // 执行下载
-  performDownload: function(audio) {
-    const fileName = `${audio.artist} - ${audio.name}.mp3`;
-
-    // 尝试高级下载方法（从缓存获取）
-    if (this.tryAdvancedDownload(audio, fileName)) {
-      return;
-    }
-
-    // 回退到传统下载方法
-    this.performSimpleDownload(audio.url, fileName);
-  },
-
-  // 尝试从浏览器缓存或当前播放器获取音频数据
-  tryAdvancedDownload: function(audio, fileName) {
-    try {
-      // 检查是否是当前正在播放的音频
-      if (window.ap && window.ap.audio && window.ap.audio.src === audio.url) {
-        // 如果音频已经加载完成，尝试从audio元素获取数据
-        if (window.ap.audio.readyState >= 3) { // HAVE_FUTURE_DATA 或更高
-          return this.downloadFromAudioElement(window.ap.audio, fileName);
-        }
-      }
-
-      // 尝试通过fetch获取（可能从缓存读取）
-      return this.downloadWithFetch(audio.url, fileName);
-    } catch (error) {
-      console.log('高级下载方法失败，使用传统方法:', error);
-      return false;
-    }
-  },
-
-  // 从audio元素下载（实验性功能）
-  downloadFromAudioElement: function(audioElement, fileName) {
-    try {
-      // 注意：由于CORS限制，这种方法可能不总是有效
-      // 主要适用于同源的音频文件
-
-      // 创建一个新的audio元素来避免影响播放
-      const tempAudio = new Audio();
-      tempAudio.crossOrigin = 'anonymous';
-      tempAudio.src = audioElement.src;
-
-      tempAudio.addEventListener('loadeddata', () => {
-        // 这里可以尝试获取音频数据，但受CORS限制
-        this.performSimpleDownload(audioElement.src, fileName);
-      });
-
-      tempAudio.addEventListener('error', () => {
-        this.performSimpleDownload(audioElement.src, fileName);
-      });
-
-      return true;
-    } catch (error) {
-      return false;
-    }
-  },
-
-  // 使用fetch下载（可能从缓存读取）
-  downloadWithFetch: function(url, fileName) {
+  // 从缓存下载音频文件
+  downloadFromCache: function(url, fileName) {
+    // 方法1: 尝试使用fetch从缓存获取
     fetch(url)
       .then(response => {
         if (!response.ok) {
-          throw new Error('网络响应不正常');
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         return response.blob();
       })
       .then(blob => {
-        // 创建blob URL并下载
-        const blobUrl = URL.createObjectURL(blob);
+        // 创建下载链接
+        const downloadUrl = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.href = blobUrl;
+        link.href = downloadUrl;
         link.download = fileName;
         link.style.display = 'none';
 
+        // 触发下载
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
 
-        // 清理blob URL
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+        // 清理URL对象
+        setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
 
+        // 显示成功提示
         this.showDownloadSuccess(fileName);
       })
       .catch(error => {
-        console.log('Fetch下载失败，使用传统方法:', error);
-        this.performSimpleDownload(url, fileName);
+        console.log('Fetch下载失败，尝试直接下载:', error);
+        // 回退到直接下载
+        this.directDownload(url, fileName);
       });
-
-    return true;
   },
 
-  // 传统的简单下载方法
-  performSimpleDownload: function(url, fileName) {
+  // 直接下载方法（传统方式）
+  directDownload: function(url, fileName) {
     const link = document.createElement('a');
     link.href = url;
     link.download = fileName;
@@ -542,82 +435,62 @@ var heo = {
     // 添加到DOM并点击
     document.body.appendChild(link);
     link.click();
-
-    // 清理
     document.body.removeChild(link);
 
     // 显示下载提示
     this.showDownloadSuccess(fileName);
   },
 
-  // 在线音乐下载（带警告提示）
-  performOnlineDownload: function(audio) {
-    const fileName = `${audio.artist} - ${audio.name}.mp3`;
-
-    // 显示警告提示
-    this.showOnlineDownloadWarning(fileName, () => {
-      // 用户确认后执行下载
-      this.tryAdvancedDownload(audio, fileName);
-    });
-  },
-
-  // 显示在线音乐下载警告
-  showOnlineDownloadWarning: function(fileName, onConfirm) {
-    const warning = document.createElement('div');
-    warning.className = 'download-warning-modal';
-    warning.innerHTML = `
-      <div class="warning-backdrop"></div>
-      <div class="warning-content">
-        <div class="warning-header">
-          <h3>⚠️ 在线音乐下载提醒</h3>
-        </div>
-        <div class="warning-body">
-          <p><strong>文件：</strong>${fileName}</p>
-          <p><strong>注意事项：</strong></p>
-          <ul>
-            <li>在线音乐链接可能有时效性，下载可能失败</li>
-            <li>请确保遵守相关版权法规</li>
-            <li>建议仅用于个人学习和测试用途</li>
-          </ul>
-        </div>
-        <div class="warning-footer">
-          <button class="btn-cancel">取消</button>
-          <button class="btn-confirm">确认下载</button>
-        </div>
+  // 显示下载错误
+  showDownloadError: function(message) {
+    const notice = document.createElement('div');
+    notice.className = 'download-notice warning';
+    notice.innerHTML = `
+      <div class="notice-content">
+        <i class="notice-icon">❌</i>
+        <span>下载失败: ${message}</span>
       </div>
     `;
 
-    // 添加样式
-    warning.style.cssText = `
+    notice.style.cssText = `
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      top: 20px;
+      right: 20px;
+      background: #f44336;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       z-index: 10000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      font-size: 14px;
+      max-width: 300px;
+      animation: slideInRight 0.3s ease-out;
     `;
 
-    document.body.appendChild(warning);
+    document.body.appendChild(notice);
 
-    // 绑定事件
-    const backdrop = warning.querySelector('.warning-backdrop');
-    const cancelBtn = warning.querySelector('.btn-cancel');
-    const confirmBtn = warning.querySelector('.btn-confirm');
-
-    const closeModal = () => {
-      document.body.removeChild(warning);
-    };
-
-    backdrop.addEventListener('click', closeModal);
-    cancelBtn.addEventListener('click', closeModal);
-    confirmBtn.addEventListener('click', () => {
-      closeModal();
-      onConfirm();
-    });
+    setTimeout(() => {
+      if (notice.parentNode) {
+        notice.style.animation = 'slideOutRight 0.3s ease-in';
+        setTimeout(() => {
+          document.body.removeChild(notice);
+        }, 300);
+      }
+    }, 4000);
   },
+
+  // 执行下载
+  performDownload: function(audio) {
+    const fileName = `${audio.artist} - ${audio.name}.mp3`;
+
+    console.log('开始下载:', fileName);
+    console.log('音频URL:', audio.url);
+
+    // 直接尝试下载，利用浏览器缓存
+    this.downloadFromCache(audio.url, fileName);
+  },
+
+
 
   // 显示下载成功提示
   showDownloadSuccess: function(fileName) {
@@ -660,46 +533,7 @@ var heo = {
     }, 3000);
   },
 
-  // 显示不支持下载的提示
-  showDownloadNotice: function() {
-    const notice = document.createElement('div');
-    notice.className = 'download-notice warning';
-    notice.innerHTML = `
-      <div class="notice-content">
-        <i class="notice-icon">⚠</i>
-        <span>当前歌曲不支持下载</span>
-        <div style="font-size: 12px; margin-top: 4px; opacity: 0.8;">
-          仅支持下载本地音乐文件
-        </div>
-      </div>
-    `;
 
-    notice.style.cssText = `
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: #FF9800;
-      color: white;
-      padding: 12px 20px;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      z-index: 10000;
-      font-size: 14px;
-      max-width: 300px;
-      animation: slideInRight 0.3s ease-out;
-    `;
-
-    document.body.appendChild(notice);
-
-    setTimeout(() => {
-      if (notice.parentNode) {
-        notice.style.animation = 'slideOutRight 0.3s ease-in';
-        setTimeout(() => {
-          document.body.removeChild(notice);
-        }, 300);
-      }
-    }, 4000);
-  },
 
   // 添加下载按钮到页面右上角
   addDownloadButton: function() {
