@@ -134,6 +134,11 @@ class MetingJSElement extends HTMLElement {
     window.ap = this.aplayer;
 
     heo.setupMediaSessionHandlers(this.aplayer);
+
+    // 为在线音乐也添加下载按钮
+    setTimeout(() => {
+      heo.addDownloadButton();
+    }, 1000);
   }
 
 }

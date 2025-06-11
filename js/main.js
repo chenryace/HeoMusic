@@ -385,31 +385,55 @@ var heo = {
       return;
     }
 
-    // 检查是否为本地音乐或允许下载的音乐
-    if (local || this.isDownloadAllowed(currentAudio.url)) {
+    const downloadStatus = this.isDownloadAllowed(currentAudio.url);
+
+    if (local || downloadStatus === true) {
+      // 本地音乐或完全允许的外链
       this.performDownload(currentAudio);
+    } else if (downloadStatus === 'online') {
+      // 在线音乐平台，尝试下载但给出警告
+      this.performOnlineDownload(currentAudio);
     } else {
-      // 对于在线音乐，显示提示信息
+      // 完全不支持的链接
       this.showDownloadNotice();
     }
   },
 
   // 检查是否允许下载
   isDownloadAllowed: function(url) {
-    // 检查是否为本地文件或外链文件
+    // 本地文件总是允许下载
     if (url.startsWith('/') || url.startsWith('./') || url.startsWith('../')) {
-      return true; // 本地文件
+      return true;
     }
 
-    // 检查是否为允许下载的外链（可以根据需要添加白名单域名）
-    const allowedDomains = [
-      // 可以在这里添加允许下载的域名
-      'your-domain.com',
-      'cdn.example.com'
+    // 对于在线音乐，我们也尝试下载，但会给出相应提示
+    // 检查是否为音乐平台的URL
+    const musicPlatforms = [
+      'music.163.com',
+      'y.qq.com',
+      'dl.stream.qqmusic.qq.com',
+      'isure.stream.qqmusic.qq.com',
+      'ws.stream.qqmusic.qq.com',
+      'music.taihe.com',
+      'musicapi.taihe.com'
     ];
 
     try {
       const urlObj = new URL(url);
+      const isFromMusicPlatform = musicPlatforms.some(platform =>
+        urlObj.hostname.includes(platform)
+      );
+
+      if (isFromMusicPlatform) {
+        return 'online'; // 标记为在线音乐
+      }
+
+      // 其他外链域名
+      const allowedDomains = [
+        'your-domain.com',
+        'cdn.example.com'
+      ];
+
       return allowedDomains.some(domain => urlObj.hostname.includes(domain));
     } catch (e) {
       return false;
@@ -524,6 +548,75 @@ var heo = {
 
     // 显示下载提示
     this.showDownloadSuccess(fileName);
+  },
+
+  // 在线音乐下载（带警告提示）
+  performOnlineDownload: function(audio) {
+    const fileName = `${audio.artist} - ${audio.name}.mp3`;
+
+    // 显示警告提示
+    this.showOnlineDownloadWarning(fileName, () => {
+      // 用户确认后执行下载
+      this.tryAdvancedDownload(audio, fileName);
+    });
+  },
+
+  // 显示在线音乐下载警告
+  showOnlineDownloadWarning: function(fileName, onConfirm) {
+    const warning = document.createElement('div');
+    warning.className = 'download-warning-modal';
+    warning.innerHTML = `
+      <div class="warning-backdrop"></div>
+      <div class="warning-content">
+        <div class="warning-header">
+          <h3>⚠️ 在线音乐下载提醒</h3>
+        </div>
+        <div class="warning-body">
+          <p><strong>文件：</strong>${fileName}</p>
+          <p><strong>注意事项：</strong></p>
+          <ul>
+            <li>在线音乐链接可能有时效性，下载可能失败</li>
+            <li>请确保遵守相关版权法规</li>
+            <li>建议仅用于个人学习和测试用途</li>
+          </ul>
+        </div>
+        <div class="warning-footer">
+          <button class="btn-cancel">取消</button>
+          <button class="btn-confirm">确认下载</button>
+        </div>
+      </div>
+    `;
+
+    // 添加样式
+    warning.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+
+    document.body.appendChild(warning);
+
+    // 绑定事件
+    const backdrop = warning.querySelector('.warning-backdrop');
+    const cancelBtn = warning.querySelector('.btn-cancel');
+    const confirmBtn = warning.querySelector('.btn-confirm');
+
+    const closeModal = () => {
+      document.body.removeChild(warning);
+    };
+
+    backdrop.addEventListener('click', closeModal);
+    cancelBtn.addEventListener('click', closeModal);
+    confirmBtn.addEventListener('click', () => {
+      closeModal();
+      onConfirm();
+    });
   },
 
   // 显示下载成功提示
@@ -735,10 +828,173 @@ var heo = {
     updateMonitor();
   },
   
+  // 音乐模式切换
+  toggleMusicMode: function() {
+    const isCurrentlyLocal = typeof localMusic !== 'undefined' && Array.isArray(localMusic) && localMusic.length > 0;
+
+    if (isCurrentlyLocal) {
+      // 切换到在线模式
+      this.switchToOnlineMode();
+    } else {
+      // 切换到本地模式
+      this.switchToLocalMode();
+    }
+  },
+
+  // 切换到在线模式
+  switchToOnlineMode: function() {
+    // 清除本地音乐配置
+    window.localMusic = undefined;
+    local = false;
+
+    // 销毁当前播放器
+    if (window.ap) {
+      window.ap.destroy();
+    }
+
+    // 清空容器
+    const container = document.getElementById('heoMusic-page');
+    container.innerHTML = '';
+    container.classList.remove('localMusic');
+
+    // 重新初始化在线音乐
+    this.getCustomPlayList();
+
+    // 更新切换按钮状态
+    this.updateModeToggle();
+
+    this.showModeChangeNotice('在线音乐模式', '已切换到在线音乐，下载功能受限');
+  },
+
+  // 切换到本地模式
+  switchToLocalMode: function() {
+    // 设置示例本地音乐
+    window.localMusic = [{
+      name: '示例本地歌曲',
+      artist: '本地歌手',
+      url: 'https://music.163.com/song/media/outer/url?id=1901371647.mp3',
+      cover: './img/cover.webp',
+      lrc: '[00:00.00]这是本地音乐模式\n[00:05.00]支持完整的下载功能\n[00:10.00]点击下载按钮试试'
+    }];
+    local = true;
+
+    // 销毁当前播放器
+    if (window.ap) {
+      window.ap.destroy();
+    }
+
+    // 清空容器
+    const container = document.getElementById('heoMusic-page');
+    container.innerHTML = '';
+    container.classList.add('localMusic');
+
+    // 加载本地音乐引擎
+    const script = document.createElement('script');
+    script.src = './js/localEngine.js';
+    document.body.appendChild(script);
+
+    // 更新切换按钮状态
+    this.updateModeToggle();
+
+    this.showModeChangeNotice('本地音乐模式', '已切换到本地音乐，完全支持下载');
+  },
+
+  // 显示模式切换提示
+  showModeChangeNotice: function(mode, message) {
+    const notice = document.createElement('div');
+    notice.className = 'download-notice success';
+    notice.innerHTML = `
+      <div class="notice-content">
+        <i class="notice-icon">🔄</i>
+        <div>
+          <div><strong>${mode}</strong></div>
+          <div style="font-size: 12px; margin-top: 2px; opacity: 0.9;">${message}</div>
+        </div>
+      </div>
+    `;
+
+    notice.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #2196F3;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 10000;
+      font-size: 14px;
+      max-width: 300px;
+      animation: slideInRight 0.3s ease-out;
+    `;
+
+    document.body.appendChild(notice);
+
+    setTimeout(() => {
+      if (notice.parentNode) {
+        notice.style.animation = 'slideOutRight 0.3s ease-in';
+        setTimeout(() => {
+          document.body.removeChild(notice);
+        }, 300);
+      }
+    }, 3000);
+  },
+
+  // 添加模式切换按钮
+  addModeToggle: function() {
+    const toggle = document.createElement('div');
+    toggle.id = 'music-mode-toggle';
+    toggle.innerHTML = `
+      <button class="mode-toggle-btn">
+        <span class="toggle-icon">🎵</span>
+        <span class="toggle-text">本地模式</span>
+      </button>
+    `;
+
+    toggle.style.cssText = `
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 1000;
+    `;
+
+    document.body.appendChild(toggle);
+
+    // 绑定点击事件
+    toggle.addEventListener('click', () => {
+      this.toggleMusicMode();
+    });
+
+    // 初始化状态
+    this.updateModeToggle();
+  },
+
+  // 更新切换按钮状态
+  updateModeToggle: function() {
+    const toggle = document.getElementById('music-mode-toggle');
+    if (!toggle) return;
+
+    const isLocal = typeof localMusic !== 'undefined' && Array.isArray(localMusic) && localMusic.length > 0;
+    const btn = toggle.querySelector('.mode-toggle-btn');
+    const icon = toggle.querySelector('.toggle-icon');
+    const text = toggle.querySelector('.toggle-text');
+
+    if (isLocal) {
+      icon.textContent = '🌐';
+      text.textContent = '在线模式';
+      btn.title = '切换到在线音乐模式';
+    } else {
+      icon.textContent = '🎵';
+      text.textContent = '本地模式';
+      btn.title = '切换到本地音乐模式';
+    }
+  },
+
   // 初始化所有事件
   init: function() {
     this.getCustomPlayList();
     this.initScrollEvents();
+    this.addModeToggle();
     // 延迟添加下载按钮，确保播放器已经初始化
     setTimeout(() => {
       this.addDownloadButton();

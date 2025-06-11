@@ -12,50 +12,11 @@
   <meta name="apple-mobile-web-app-title" content="音乐">
   <link rel="bookmark" href="./img/icon.webp">
   <link rel="apple-touch-icon-precomposed" sizes="180x180" href="./img/icon-r.webp">
-  <meta name="description" content="一个简单好用的音乐播放器。">
+  <meta name="description" content="一个简单好用的音乐播放器 - 支持在线音乐和本地音乐切换，包含下载功能。">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#000000">
-  <style>
-    .mode-indicator {
-      position: fixed;
-      top: 20px;
-      left: 20px;
-      background: rgba(33, 150, 243, 0.9);
-      color: white;
-      padding: 8px 16px;
-      border-radius: 20px;
-      font-size: 14px;
-      z-index: 1000;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    }
-    .switch-mode {
-      position: fixed;
-      bottom: 20px;
-      left: 20px;
-      background: rgba(0,0,0,0.7);
-      color: white;
-      padding: 10px 15px;
-      border-radius: 5px;
-      text-decoration: none;
-      font-size: 14px;
-      z-index: 1000;
-      transition: background 0.3s;
-    }
-    .switch-mode:hover {
-      background: rgba(0,0,0,0.9);
-      color: white;
-    }
-  </style>
 </head>
 <body>
-<div class="mode-indicator">
-  🌐 在线音乐模式 - 下载功能有限
-</div>
-
-<a href="index-local.html" class="switch-mode">
-  🎵 切换到本地音乐模式（支持下载）
-</a>
-
 <div id="heoMusic-page">
 </div>
 <script>
