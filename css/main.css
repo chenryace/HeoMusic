@@ -718,3 +718,95 @@ body .aplayer .aplayer-info .aplayer-controller .aplayer-time .aplayer-icon.apla
     margin-left: 0;
   }
 }
+
+/* 下载功能相关样式 */
+.download-btn {
+  background: none !important;
+  border: none !important;
+  color: #666 !important;
+  cursor: pointer !important;
+  padding: 8px !important;
+  margin: 0 4px !important;
+  border-radius: 4px !important;
+  transition: all 0.3s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.download-btn:hover {
+  color: #333 !important;
+  background: rgba(0,0,0,0.1) !important;
+}
+
+/* 下载通知样式 */
+.download-notice {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 10000;
+  font-size: 14px;
+  max-width: 300px;
+  color: white;
+}
+
+.download-notice.success {
+  background: #4CAF50;
+}
+
+.download-notice.warning {
+  background: #FF9800;
+}
+
+.download-notice .notice-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.download-notice .notice-icon {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+/* 动画效果 */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* 移动端下载按钮样式调整 */
+@media screen and (max-width: 768px) {
+  .download-btn {
+    padding: 6px !important;
+    margin: 0 2px !important;
+  }
+
+  .download-notice {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+    font-size: 13px;
+  }
+}

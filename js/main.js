@@ -371,11 +371,378 @@ var heo = {
       });
     }
   },
+
+  // 添加下载功能
+  downloadCurrentSong: function() {
+    if (!window.ap || !window.ap.list || !window.ap.list.audios) {
+      console.error('播放器未初始化或没有音乐列表');
+      return;
+    }
+
+    const currentAudio = window.ap.list.audios[window.ap.list.index];
+    if (!currentAudio) {
+      console.error('没有当前播放的音乐');
+      return;
+    }
+
+    // 检查是否为本地音乐或允许下载的音乐
+    if (local || this.isDownloadAllowed(currentAudio.url)) {
+      this.performDownload(currentAudio);
+    } else {
+      // 对于在线音乐，显示提示信息
+      this.showDownloadNotice();
+    }
+  },
+
+  // 检查是否允许下载
+  isDownloadAllowed: function(url) {
+    // 检查是否为本地文件或外链文件
+    if (url.startsWith('/') || url.startsWith('./') || url.startsWith('../')) {
+      return true; // 本地文件
+    }
+
+    // 检查是否为允许下载的外链（可以根据需要添加白名单域名）
+    const allowedDomains = [
+      // 可以在这里添加允许下载的域名
+      'your-domain.com',
+      'cdn.example.com'
+    ];
+
+    try {
+      const urlObj = new URL(url);
+      return allowedDomains.some(domain => urlObj.hostname.includes(domain));
+    } catch (e) {
+      return false;
+    }
+  },
+
+  // 执行下载
+  performDownload: function(audio) {
+    const fileName = `${audio.artist} - ${audio.name}.mp3`;
+
+    // 尝试高级下载方法（从缓存获取）
+    if (this.tryAdvancedDownload(audio, fileName)) {
+      return;
+    }
+
+    // 回退到传统下载方法
+    this.performSimpleDownload(audio.url, fileName);
+  },
+
+  // 尝试从浏览器缓存或当前播放器获取音频数据
+  tryAdvancedDownload: function(audio, fileName) {
+    try {
+      // 检查是否是当前正在播放的音频
+      if (window.ap && window.ap.audio && window.ap.audio.src === audio.url) {
+        // 如果音频已经加载完成，尝试从audio元素获取数据
+        if (window.ap.audio.readyState >= 3) { // HAVE_FUTURE_DATA 或更高
+          return this.downloadFromAudioElement(window.ap.audio, fileName);
+        }
+      }
+
+      // 尝试通过fetch获取（可能从缓存读取）
+      return this.downloadWithFetch(audio.url, fileName);
+    } catch (error) {
+      console.log('高级下载方法失败，使用传统方法:', error);
+      return false;
+    }
+  },
+
+  // 从audio元素下载（实验性功能）
+  downloadFromAudioElement: function(audioElement, fileName) {
+    try {
+      // 注意：由于CORS限制，这种方法可能不总是有效
+      // 主要适用于同源的音频文件
+
+      // 创建一个新的audio元素来避免影响播放
+      const tempAudio = new Audio();
+      tempAudio.crossOrigin = 'anonymous';
+      tempAudio.src = audioElement.src;
+
+      tempAudio.addEventListener('loadeddata', () => {
+        // 这里可以尝试获取音频数据，但受CORS限制
+        this.performSimpleDownload(audioElement.src, fileName);
+      });
+
+      tempAudio.addEventListener('error', () => {
+        this.performSimpleDownload(audioElement.src, fileName);
+      });
+
+      return true;
+    } catch (error) {
+      return false;
+    }
+  },
+
+  // 使用fetch下载（可能从缓存读取）
+  downloadWithFetch: function(url, fileName) {
+    fetch(url)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('网络响应不正常');
+        }
+        return response.blob();
+      })
+      .then(blob => {
+        // 创建blob URL并下载
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName;
+        link.style.display = 'none';
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // 清理blob URL
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+
+        this.showDownloadSuccess(fileName);
+      })
+      .catch(error => {
+        console.log('Fetch下载失败，使用传统方法:', error);
+        this.performSimpleDownload(url, fileName);
+      });
+
+    return true;
+  },
+
+  // 传统的简单下载方法
+  performSimpleDownload: function(url, fileName) {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.style.display = 'none';
+
+    // 添加到DOM并点击
+    document.body.appendChild(link);
+    link.click();
+
+    // 清理
+    document.body.removeChild(link);
+
+    // 显示下载提示
+    this.showDownloadSuccess(fileName);
+  },
+
+  // 显示下载成功提示
+  showDownloadSuccess: function(fileName) {
+    // 创建提示元素
+    const notice = document.createElement('div');
+    notice.className = 'download-notice success';
+    notice.innerHTML = `
+      <div class="notice-content">
+        <i class="notice-icon">✓</i>
+        <span>开始下载: ${fileName}</span>
+      </div>
+    `;
+
+    // 添加样式
+    notice.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #4CAF50;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 10000;
+      font-size: 14px;
+      max-width: 300px;
+      animation: slideInRight 0.3s ease-out;
+    `;
+
+    document.body.appendChild(notice);
+
+    // 3秒后自动移除
+    setTimeout(() => {
+      if (notice.parentNode) {
+        notice.style.animation = 'slideOutRight 0.3s ease-in';
+        setTimeout(() => {
+          document.body.removeChild(notice);
+        }, 300);
+      }
+    }, 3000);
+  },
+
+  // 显示不支持下载的提示
+  showDownloadNotice: function() {
+    const notice = document.createElement('div');
+    notice.className = 'download-notice warning';
+    notice.innerHTML = `
+      <div class="notice-content">
+        <i class="notice-icon">⚠</i>
+        <span>当前歌曲不支持下载</span>
+        <div style="font-size: 12px; margin-top: 4px; opacity: 0.8;">
+          仅支持下载本地音乐文件
+        </div>
+      </div>
+    `;
+
+    notice.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #FF9800;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 10000;
+      font-size: 14px;
+      max-width: 300px;
+      animation: slideInRight 0.3s ease-out;
+    `;
+
+    document.body.appendChild(notice);
+
+    setTimeout(() => {
+      if (notice.parentNode) {
+        notice.style.animation = 'slideOutRight 0.3s ease-in';
+        setTimeout(() => {
+          document.body.removeChild(notice);
+        }, 300);
+      }
+    }, 4000);
+  },
+
+  // 添加下载按钮到播放器
+  addDownloadButton: function() {
+    // 等待播放器加载完成
+    const checkPlayer = () => {
+      const playerContainer = document.querySelector('.aplayer');
+      const controllerBar = document.querySelector('.aplayer-controller');
+
+      if (playerContainer && controllerBar && !document.querySelector('.download-btn')) {
+        // 创建下载按钮
+        const downloadBtn = document.createElement('button');
+        downloadBtn.className = 'download-btn';
+        downloadBtn.innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/>
+          </svg>
+        `;
+        downloadBtn.title = '下载当前歌曲';
+
+        // 添加样式
+        downloadBtn.style.cssText = `
+          background: none;
+          border: none;
+          color: #666;
+          cursor: pointer;
+          padding: 8px;
+          margin: 0 4px;
+          border-radius: 4px;
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        `;
+
+        // 添加悬停效果
+        downloadBtn.addEventListener('mouseenter', () => {
+          downloadBtn.style.color = '#333';
+          downloadBtn.style.background = 'rgba(0,0,0,0.1)';
+        });
+
+        downloadBtn.addEventListener('mouseleave', () => {
+          downloadBtn.style.color = '#666';
+          downloadBtn.style.background = 'none';
+        });
+
+        // 添加点击事件
+        downloadBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.downloadCurrentSong();
+        });
+
+        // 将按钮添加到控制栏
+        const volumeButton = controllerBar.querySelector('.aplayer-volume-wrap') ||
+                           controllerBar.querySelector('.aplayer-time');
+        if (volumeButton) {
+          volumeButton.parentNode.insertBefore(downloadBtn, volumeButton);
+        } else {
+          controllerBar.appendChild(downloadBtn);
+        }
+
+        // 添加音频加载状态监控（调试用）
+        this.addAudioLoadingMonitor();
+      } else if (!playerContainer || !controllerBar) {
+        // 如果播放器还没加载完成，继续等待
+        setTimeout(checkPlayer, 100);
+      }
+    };
+
+    checkPlayer();
+  },
+
+  // 添加音频加载状态监控（调试功能）
+  addAudioLoadingMonitor: function() {
+    if (!window.ap || !window.ap.audio) return;
+
+    const audio = window.ap.audio;
+    let monitor = null;
+
+    // 创建监控面板（仅在开发模式下显示）
+    if (window.location.search.includes('debug=true')) {
+      monitor = document.createElement('div');
+      monitor.id = 'audio-monitor';
+      monitor.style.cssText = `
+        position: fixed;
+        top: 100px;
+        right: 20px;
+        background: rgba(0,0,0,0.8);
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        font-size: 12px;
+        z-index: 10001;
+        min-width: 200px;
+      `;
+      document.body.appendChild(monitor);
+    }
+
+    // 监听音频加载事件
+    const updateMonitor = () => {
+      if (!monitor) return;
+
+      const readyStates = ['HAVE_NOTHING', 'HAVE_METADATA', 'HAVE_CURRENT_DATA', 'HAVE_FUTURE_DATA', 'HAVE_ENOUGH_DATA'];
+      const networkStates = ['NETWORK_EMPTY', 'NETWORK_IDLE', 'NETWORK_LOADING', 'NETWORK_NO_SOURCE'];
+
+      monitor.innerHTML = `
+        <div><strong>音频加载状态</strong></div>
+        <div>Ready State: ${readyStates[audio.readyState] || audio.readyState}</div>
+        <div>Network State: ${networkStates[audio.networkState] || audio.networkState}</div>
+        <div>Duration: ${audio.duration ? audio.duration.toFixed(2) + 's' : 'Unknown'}</div>
+        <div>Buffered: ${audio.buffered.length > 0 ? (audio.buffered.end(0) / audio.duration * 100).toFixed(1) + '%' : '0%'}</div>
+        <div>Current Time: ${audio.currentTime.toFixed(2)}s</div>
+        <div>Preload: ${audio.preload}</div>
+        <div>Can Download: ${this.isDownloadAllowed(audio.src) ? 'Yes' : 'No'}</div>
+      `;
+    };
+
+    // 绑定事件监听器
+    const events = ['loadstart', 'durationchange', 'loadedmetadata', 'loadeddata', 'progress', 'canplay', 'canplaythrough'];
+    events.forEach(event => {
+      audio.addEventListener(event, updateMonitor);
+    });
+
+    // 定期更新
+    setInterval(updateMonitor, 1000);
+    updateMonitor();
+  },
   
   // 初始化所有事件
   init: function() {
     this.getCustomPlayList();
     this.initScrollEvents();
+    // 延迟添加下载按钮，确保播放器已经初始化
+    setTimeout(() => {
+      this.addDownloadButton();
+    }, 1000);
   }
 }
 
@@ -414,6 +781,11 @@ document.addEventListener("keydown", function (event) {
       ap.volume(volume, true);
 
     }
+  }
+  //下载当前歌曲 (Ctrl+D 或 Cmd+D)
+  if ((event.ctrlKey || event.metaKey) && event.keyCode === 68) {
+    event.preventDefault();
+    heo.downloadCurrentSong();
   }
 });
 

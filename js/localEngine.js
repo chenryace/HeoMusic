@@ -22,3 +22,8 @@ const ap = new APlayer({
 });
 
 heo.setupMediaSessionHandlers(ap);
+
+// 为本地音乐播放器添加下载按钮
+setTimeout(() => {
+  heo.addDownloadButton();
+}, 500);
